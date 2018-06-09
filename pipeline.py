@@ -1,6 +1,6 @@
 import cv2 as cv
 from utils import *
-from line import Line
+from line import Line, evaluate_lane_curve_radius
 
 
 class Pipeline:
@@ -73,12 +73,12 @@ class Pipeline:
 
         # Calculate the radii of the curvature in meters
         y_eval = np.max(y_points)
-        left_curverad = self.evaluate_lane_curve_radius(line=self.left_line, eval_pnt_y=y_eval)
-        right_curverad = self.evaluate_lane_curve_radius(line=self.right_line, eval_pnt_y=y_eval)
+        left_curverad = self.left_line.evaluate_curve_radius(self.xm_per_pix, self.ym_per_pix, eval_pnt_y=y_eval)
+        right_curverad = self.right_line.evaluate_curve_radius(self.xm_per_pix, self.ym_per_pix, eval_pnt_y=y_eval)
         curve_radius = (left_curverad + right_curverad) // 2
 
         # calculate the distance the car is off center of the lane (meters)
-        center_offset_m = self.calculate_dist_off_center(undist_img, warped_polygon_layer_img)
+        center_offset_m = self._calculate_dist_off_center(undist_img, warped_polygon_layer_img)
 
         return self.overlay_meta_image(lane_img, filtered_img, bird_view_img, frame_num=self.frame_idx,
                                        curve_rad=curve_radius, center_offset=center_offset_m)
@@ -100,7 +100,7 @@ class Pipeline:
         # Draw the lane onto the unwarped image palette
         cv2.fillPoly(img_palette, np.int_([pts]), (0, 255, 0))
 
-    def calculate_dist_off_center(self, img, warped_lane_img):
+    def _calculate_dist_off_center(self, img, warped_lane_img):
         """
         Determine the distance car is off center by comparing the
         :param img: original undistorted image
@@ -113,20 +113,6 @@ class Pipeline:
         center_diff_pix = (front_perspective_inds[0] + front_perspective_inds[-1]) // 2 - mid_lane_x
         center_diff_m = center_diff_pix * self.xm_per_pix
         return center_diff_m
-
-    def evaluate_lane_curve_radius(self, line=None, eval_pnt_y=0):
-        """
-        Evaluate lane line curve radius at a point
-
-        :param line: quadratic Line
-        :param eval_pnt_y: point at which the curve radius is determined
-        :return:
-        """
-        a = line.quad_coeff * self.xm_per_pix / (self.ym_per_pix ** 2)
-        b = line.linear_coeff * self.xm_per_pix / self.ym_per_pix
-        curve_radius = ((1 + (2 * a * eval_pnt_y * self.ym_per_pix + b) ** 2) ** 1.5) / np.absolute(2 * a)
-
-        return curve_radius
 
     def _apply_filters(self, undist_img):
         """
