@@ -1,6 +1,6 @@
 import cv2 as cv
 from utils import *
-from line import Line, evaluate_lane_curve_radius
+from line import Line
 
 
 class Pipeline:
